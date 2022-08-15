@@ -23,6 +23,10 @@ import org.jpos.iso.ISOMsg;
 import org.jpos.iso.packager.GenericPackager;
 
 import java.io.InputStream;
+import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -38,8 +42,9 @@ public class MainActivity extends AppCompatActivity {
     private String amount;
     private IPrinter printer;
     private IDAL idal;
+    protected Map<Integer,Long> fields;
 
-    public static HashMap <String, String> isofields =new HashMap<String, String>();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -65,10 +70,55 @@ public class MainActivity extends AppCompatActivity {
 
         //3,11,12,13,43,63 which bits must be full
         //bitmap 0010000000111000000000000000000000000000001000000000000000000010
-        isofields.put("MTI", "0200");
-        isofields.put("BITMAP", "0010000000111000000000000000000000000000001000000000000000000010");
+        int MTI = 0x0200;
+        // And your Bitmap should be calculated like this:
+        long BitMap = 0;
+        HashMap<Integer, Long> myMap = new HashMap<Integer, Long>();
+        myMap.put(3,BitMap);
+        myMap.put(11,BitMap);
+        myMap.put(12,BitMap);
+        myMap.put(13,BitMap);
+        myMap.put(43,BitMap);
+        myMap.put(63,BitMap);
+
+        setIsoField(myMap);
+
 
         initView();
+    }
+    public void setIsoField(HashMap<Integer, Long>map){
+        int biggest_value=0;
+        long maxValueInMap=(Collections.max(map.values()));
+        for (Map.Entry<Integer, Long> entry : map.entrySet()) {  // Itrate through hashmap
+            if (entry.getValue()==maxValueInMap) {
+                biggest_value = entry.getKey();
+            }
+        }
+        int[] arr = new int[biggest_value+1];
+        long result =0;
+
+        for(Map.Entry<Integer, Long> entry : map.entrySet()){
+            result = (arr[arr.length - 1] >> entry.getKey()-1) | 1 ;
+            arr[entry.getKey()-1] = (int)result ;
+        }
+        getBitmap(arr);
+    }
+
+    public void getBitmap(int[] bits){
+
+        assert bits.length % 8 == 0;
+
+        byte[] bytes = new byte[bits.length / 8];
+        for (int i = 0; i < bytes.length; i++) {
+            int b = 0;
+            for (int j = 0; j < 8; j++)
+                b = (b << 1) + bits[i * 8 + j];
+            bytes[i] = (byte)b;
+        }
+
+        for (int i = 0; i < bytes.length; i++)
+            System.out.printf("%02x ", bytes[i]); // prints: 5e 3d
+        System.out.println();
     }
 
 
@@ -85,7 +135,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 amount= mainBinding.amount.getText().toString().trim();
-                socket.emit("amount",isofields);
+                socket.emit("amount",amount);
                 printReceiv(amount);
                 mainBinding.returnPay.setVisibility(View.VISIBLE);
             }
